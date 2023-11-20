@@ -1,0 +1,51 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Logging API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/logs": {
+      "post": {
+        "summary": "Log a message",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Log"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful log creation"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Log": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "systemCode": {
+            "type": "string"
+          },
+          "logLevel": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
