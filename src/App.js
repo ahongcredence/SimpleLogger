@@ -1,43 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import './App.css';
+
+
 
 function LogInput() {
   const [log, setLog] = useState({
     systemCode: '',
-    logLevel: 'debug', // Default to 'debug'
+    logLevel: 'debug',
     message: ''
   });
+  const [timestamp, setTimestamp] = useState('');
+
+  useEffect(() => {
+    // Update timestamp every second
+    const intervalId = setInterval(() => {
+      const formattedTimestamp = new Date().toLocaleString('en-US', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        timeZoneName: 'short'
+      });
+      setTimestamp(formattedTimestamp);
+    }, 1000);
+
+    return () => {
+      // Clear interval on component unmount
+      clearInterval(intervalId);
+    };
+  }, []); // Empty dependency array ensures this effect runs once on component mount
 
   const handleInputChange = (e) => {
     setLog({ ...log, [e.target.name]: e.target.value });
-  }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const timestamp = new Date().toISOString();
+    const payload = {
+      body: {
+        timestamp: new Date().toISOString(),
+        systemCode: log.systemCode,
+        message: log.message,
+        severity: log.logLevel.toUpperCase(),
+        source: "LambdaFunction"
+      }
+    };
+
     try {
-      await axios.post('https://ic2sabz0ck.execute-api.us-east-2.amazonaws.com/default/storeMyLogs1', { ...log, timestamp });
-      alert('Log submitted successfully');
-      setLog({ systemCode: '', logLevel: 'debug', message: '' }); // Reset log level to 'debug'
+      await axios.post('https://ic2sabz0ck.execute-api.us-east-2.amazonaws.com/default/logs', payload);
+      alert('Log submitted successfully!');
+      setLog({ systemCode: '', logLevel: 'debug', message: '' });
     } catch (error) {
-      console.error('Error submitting log');
+      console.error('Error submitting log: ', error);
     }
-  }
+  };
 
   return (
-    <form onSubmit={handleSubmit} style={{ 
-      display: 'flex',
-      flexDirection: 'column',
-      maxWidth: '300px',
-      margin: 'auto',
-      height: '100vh',
-      justifyContent: 'center',
-      backgroundColor: '#333', // Dark background color
-      color: '#fff', // Light text color
-      padding: '20px',
-      borderRadius: '10px', // Rounded corners
-      boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)' // Box shadow for depth
-    }}>
+    <form onSubmit={handleSubmit} className="form-container">
+      <h2>Simple Logging Service</h2>
+      <p>{timestamp}</p> {/* Display timestamp just below the h2 */}
       <label htmlFor="systemCode">System Code:</label>
       <input type="text" id="systemCode" name="systemCode" placeholder="Enter System Code" value={log.systemCode} onChange={handleInputChange} />
 
@@ -54,6 +79,8 @@ function LogInput() {
 
       <button type="submit" style={{ backgroundColor: '#4CAF50', color: '#fff', cursor: 'pointer' }}>Submit Log</button>
     </form>
+
+    
   );
 }
 
