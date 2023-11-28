@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
+import LogTable from './LogTable';
+const apiKey = process.env.REACT_APP_API_KEY;
 
 function LogInput() {
   const [log, setLog] = useState({
@@ -10,9 +12,37 @@ function LogInput() {
   });
   const [timestamp, setTimestamp] = useState('');
   const [logHistory, setLogHistory] = useState([]);
+
+  const fetchLogs = async () => {
+    try {
+      const response = await fetch('https://ic2sabz0ck.execute-api.us-east-2.amazonaws.com/default/logs', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+        },
+      });
+  
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+  
+      const data = await response.json();
+  
+      const fetchedLogs = Object.values(data.bucket_data).map((logData) => logData.content).filter((log) => log !== 'null') // Filter out "null" strings
+      .map((log) => JSON.parse(log)); // Parse JSON strings
+      console.log(fetchedLogs);
+      setLogHistory(fetchedLogs);
+  
+    } catch (error) {
+      console.error('Error fetching logs: ', error);
+    }
+  };
+  
   
 
   useEffect(() => {
+    fetchLogs();
     // Update timestamp every second
     const intervalId = setInterval(() => {
       const formattedTimestamp = new Date().toLocaleString('en-US', {
@@ -27,7 +57,7 @@ function LogInput() {
       });
       setTimestamp(formattedTimestamp);
     }, 1000);
-
+    
     return () => {
       // Clear interval on component unmount
       clearInterval(intervalId);
@@ -53,12 +83,14 @@ function LogInput() {
     };
 
     try {
-      await axios.post('https://ic2sabz0ck.execute-api.us-east-2.amazonaws.com/default/logs', { body: newLog });
+      await axios.post('https://ic2sabz0ck.execute-api.us-east-2.amazonaws.com/default/logs', {'body': newLog, httpMethod:'POST'}, {
+        'headers': { 'x-api-key': apiKey, 'Content-Type': 'application/json' } // Add API key and content type headers
+      });
       alert('Log submitted successfully!');
       setLogHistory([...logHistory, newLog]); // Update log history with the new log
       setLog({ systemCode: '', logLevel: 'debug', message: '' });
-      
     } catch (error) {
+      console.log(apiKey);
       console.error('Error submitting log: ', error);
     }
   };
@@ -85,17 +117,13 @@ function LogInput() {
         <button type="submit" style={{ backgroundColor: '#4CAF50', color: '#fff', cursor: 'pointer' }}>Submit Log</button>
       </form>
 
-      {/* Display log history as an unordered list */}
-      <div>
-        <h3>Log History</h3>
-        <ul>
-          {logHistory.map((logEntry, index) => (
-            <li key={index}>
-              <strong>{logEntry.timestamp}</strong> {logEntry.systemCode} - {logEntry.severity}: {logEntry.message}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <div style={{ textAlign: 'center'}}>
+      {/* Other content */}
+      <LogTable logHistory={logHistory} />
+    </div>
+      
+      
+
     </div>
   );
 }
