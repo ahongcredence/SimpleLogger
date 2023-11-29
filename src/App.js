@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
-import LogTable from './LogTable';
+
 const apiKey = process.env.REACT_APP_API_KEY;
 
 function LogInput() {
@@ -12,6 +12,12 @@ function LogInput() {
   });
   const [timestamp, setTimestamp] = useState('');
   const [logHistory, setLogHistory] = useState([]);
+  const [showTable, setShowTable] = useState(false);
+
+  const toggleTable = () => {
+    fetchLogs();
+    setShowTable(!showTable);
+  };
 
   const fetchLogs = async () => {
     try {
@@ -28,12 +34,8 @@ function LogInput() {
       }
   
       const data = await response.json();
-  
-      const fetchedLogs = Object.values(data.bucket_data).map((logData) => logData.content).filter((log) => log !== 'null') // Filter out "null" strings
-      .map((log) => JSON.parse(log)); // Parse JSON strings
-      console.log(fetchedLogs);
-      setLogHistory(fetchedLogs);
-  
+      setLogHistory(data.bucket_data);
+      
     } catch (error) {
       console.error('Error fetching logs: ', error);
     }
@@ -42,7 +44,7 @@ function LogInput() {
   
 
   useEffect(() => {
-    fetchLogs();
+    
     // Update timestamp every second
     const intervalId = setInterval(() => {
       const formattedTimestamp = new Date().toLocaleString('en-US', {
@@ -57,7 +59,7 @@ function LogInput() {
       });
       setTimestamp(formattedTimestamp);
     }, 1000);
-    
+    fetchLogs();
     return () => {
       // Clear interval on component unmount
       clearInterval(intervalId);
@@ -87,13 +89,22 @@ function LogInput() {
         'headers': { 'x-api-key': apiKey, 'Content-Type': 'application/json' } // Add API key and content type headers
       });
       alert('Log submitted successfully!');
-      setLogHistory([...logHistory, newLog]); // Update log history with the new log
+      console.log(newLog);
+      await setLogHistory([...logHistory, newLog]); // Update log history with the new log
       setLog({ systemCode: '', logLevel: 'debug', message: '' });
+      await fetchLogs(); // Fetch updated log history
     } catch (error) {
       console.log(apiKey);
       console.error('Error submitting log: ', error);
     }
   };
+
+  // Sort logHistory by timestamp in descending order
+  const sortedLogHistory = [...logHistory].sort((a, b) => {
+    const timestampA = a.content ? JSON.parse(a.content).timestamp : 0;
+    const timestampB = b.content ? JSON.parse(b.content).timestamp : 0;
+    return new Date(timestampB) - new Date(timestampA);
+  });
 
   return (
     <div>
@@ -118,11 +129,40 @@ function LogInput() {
       </form>
 
       <div style={{ textAlign: 'center'}}>
-      {/* Other content */}
-      <LogTable logHistory={logHistory} />
+      
     </div>
       
-      
+    <div style={{ textAlign: 'center' }}>
+      <button onClick={toggleTable}>Show History</button>
+      {showTable && (
+        <table style={{ borderCollapse: 'collapse', width: '50%', marginTop: '10px', margin: '0 auto' }}>
+          <thead>
+            <tr>
+              <th style={{ border: '1px solid #dddddd', textAlign: 'left', padding: '8px' }}>FileName</th>
+              <th style={{ border: '1px solid #dddddd', textAlign: 'left', padding: '8px' }}>Timestamp</th>
+              <th style={{ border: '1px solid #dddddd', textAlign: 'left', padding: '8px' }}>Log Level</th>
+              <th style={{ border: '1px solid #dddddd', textAlign: 'left', padding: '8px' }}>System Code</th>
+              <th style={{ border: '1px solid #dddddd', textAlign: 'left', padding: '8px' }}>Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+            sortedLogHistory.map((logEntry, index) => {  
+              const contentObject = logEntry.content ? JSON.parse(logEntry.content) : {};
+              return (
+                <tr key={index}>
+                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{logEntry.file_name}</td>
+                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{contentObject.timestamp}</td>
+                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{contentObject.severity}</td>
+                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{contentObject.systemCode}</td>
+                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{contentObject.message}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
 
     </div>
   );
