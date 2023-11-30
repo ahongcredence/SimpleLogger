@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState} from 'react';
 import axios from 'axios';
 import './App.css';
 
@@ -10,7 +10,6 @@ function LogInput() {
     logLevel: 'debug',
     message: ''
   });
-  const [timestamp, setTimestamp] = useState('');
   const [logHistory, setLogHistory] = useState([]);
   const [showTable, setShowTable] = useState(false);
 
@@ -43,28 +42,7 @@ function LogInput() {
   
   
 
-  useEffect(() => {
-    
-    // Update timestamp every second
-    const intervalId = setInterval(() => {
-      const formattedTimestamp = new Date().toLocaleString('en-US', {
-        weekday: 'short',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric',
-        second: 'numeric',
-        timeZoneName: 'short'
-      });
-      setTimestamp(formattedTimestamp);
-    }, 1000);
-    fetchLogs();
-    return () => {
-      // Clear interval on component unmount
-      clearInterval(intervalId);
-    };
-  }, []); // Empty dependency array ensures this effect runs once on component mount
+ 
 
   const handleInputChange = (e) => {
     setLog({ ...log, [e.target.name]: e.target.value });
@@ -101,8 +79,11 @@ function LogInput() {
 
   // Sort logHistory by timestamp in descending order
   const sortedLogHistory = [...logHistory].sort((a, b) => {
-    const timestampA = a.content ? JSON.parse(a.content).timestamp : 0;
-    const timestampB = b.content ? JSON.parse(b.content).timestamp : 0;
+    const obj = JSON.parse(JSON.parse(a.content));
+    const obj2 = JSON.parse(JSON.parse(b.content));
+    const timestampA = obj.body ? obj.body.timestamp : 0;
+    const timestampB = obj2.body ? obj2.body.timestamp : 0;
+    
     return new Date(timestampB) - new Date(timestampA);
   });
 
@@ -110,7 +91,7 @@ function LogInput() {
     <div>
       <form onSubmit={handleSubmit} className="form-container">
         <h2>Simple Logging Service</h2>
-        <p>{timestamp}</p> {/* Display timestamp just below the h2 */}
+        
         <label htmlFor="systemCode">System Code:</label>
         <input type="text" id="systemCode" name="systemCode" placeholder="Enter System Code" value={log.systemCode} onChange={handleInputChange} />
 
@@ -149,13 +130,14 @@ function LogInput() {
             {
             sortedLogHistory.map((logEntry, index) => {  
               const contentObject = logEntry.content ? JSON.parse(logEntry.content) : {};
+              const obj = JSON.parse(contentObject);          
               return (
                 <tr key={index}>
                   <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{logEntry.file_name}</td>
-                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{contentObject.timestamp}</td>
-                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{contentObject.severity}</td>
-                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{contentObject.systemCode}</td>
-                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{contentObject.message}</td>
+                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{obj.body.timestamp}</td>
+                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{obj.body.severity}</td>
+                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{obj.body.systemCode}</td>
+                  <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{obj.body.message}</td>
                 </tr>
               );
             })}
