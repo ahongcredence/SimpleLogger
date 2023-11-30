@@ -6,29 +6,24 @@ import os
 import datetime
 import random
 import string
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+from tabulate import tabulate
 
 def generate_payload():
-    # Generate a new random 3-digit number for the system code
     system_code = f"{random.randint(100, 999)}"
-
-    # Generate a new random string of less than 50 characters for the message
     message_length = random.randint(1, 50)
     random_message = ''.join(random.choices(string.ascii_letters + string.digits, k=message_length))
-
-    # Get the current timestamp in the required format
     current_timestamp = datetime.datetime.now().strftime('%m/%d/%Y, %I:%M:%S %p')
-
-    logLevelArray = ['trace', 'debug', 'info', 'error']
-    randomLogLevel = random.choice(logLevelArray)
+    log_level_array = ['trace', 'debug', 'info', 'error']
+    random_log_level = random.choice(log_level_array)
 
     return {
         'body': {
             'timestamp': current_timestamp,
             'systemCode': system_code,
             'message': random_message,
-            'severity': randomLogLevel,
+            'severity': random_log_level,
             'source': 'LambdaFunction'
         },
         'httpMethod': 'POST'
@@ -38,63 +33,64 @@ def stress_test(api_key, api_url, attempts, batch_size, delay_ms):
     fake = Faker()
     successes = 0
     errors = 0
-    tooManyRequests = 0
+    too_many_requests = 0
     responses = []
 
-    # Use session for HTTP requests to reuse underlying TCP connection instead of making new one each time
     session = requests.Session()
     session.headers.update({'x-api-key': api_key, 'Content-Type': 'application/json'})
 
-    for i in range(1, attempts + 1):
-        print(f"Attempt {i}:\n")
+    with ThreadPoolExecutor() as executor:
+        for i in range(1, attempts + 1):
+            print(f"Attempt {i}:\n")
 
-        # Use concurrent.futures for parallel execution
-        with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(session.post, api_url, data=json.dumps(generate_payload())) for _ in range(batch_size)]
+            futures = [executor.submit(session.post, api_url, json=generate_payload()) for _ in range(batch_size)]
 
-        # Print responses and errors, and tally up the counts
-        for future in futures:
-            try:
-                response = future.result()
-                print(f"Response: {response.text}")
-                responses.append(f"Response: {response.text}")
-                if response.status_code == 200:
-                    successes += 1
-                elif response.status_code == 500:
-                    errors += 1
-                elif response.status_code == 429:
-                    tooManyRequests +=1
-            except Exception as e:
-                print(f"Error: {e}")
-                responses.append(f"Error: {e}")
-                errors += 1
+            for future in as_completed(futures):
+                try:
+                    response = future.result()
+                    aws_request_id = response.headers.get('x-amzn-RequestId')
 
-        print("---------------------------------------------\n")
+                    if response.status_code == 200:
+                        successes += 1
+                        print(f"Success: {response.status_code} - AWS RequestId: {aws_request_id}")
+                        responses.append(aws_request_id)
+                    elif response.status_code == 500:
+                        errors += 1
+                        print(f"Error: {response.status_code} - AWS RequestId: {aws_request_id}")
+                    elif response.status_code == 429:
+                        too_many_requests += 1
 
-        # Introduce delay between attempts
-        if i < attempts:
-            time.sleep(delay_ms / 1000.0)  # Convert milliseconds to seconds
+                except Exception as e:
+                    print(f"An error occurred: {e}")
 
-    # Print final counts
-    print(f"200 Responses: {successes}")
-    print(f"500 Responses: {errors}")
-    print(f"429 Responses: {tooManyRequests}")
-    print(f"Total Responses: {successes + errors + tooManyRequests}")
+            print("---------------------------------------------\n")
 
-    # Write responses to a text file
+            if i < attempts:
+                time.sleep(delay_ms / 1000.0)
+
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     folder_path = os.path.join(os.getcwd(), 'tests')
     os.makedirs(folder_path, exist_ok=True)
-    file_path = os.path.join(folder_path, f"responses_{timestamp}.txt")
-
+    file_path = os.path.join(folder_path, f"responses_{timestamp}.log")
     with open(file_path, 'w') as file:
         file.write("\n".join(responses))
 
     print(f"Responses written to: {file_path}")
+    table = tabulate([
+        ("Batch Size", batch_size),
+        ("Total Attempts", attempts),
+        ("Delay (ms)", delay_ms),
+        ("200 Responses", successes),
+        ("500 Responses", errors),
+        ("429 Responses", too_many_requests),
+        ("Total Responses", successes + errors + too_many_requests),
+    ], headers=["Parameter", "Value"])
+    print(table)
+    print(responses)
 
 if __name__ == "__main__":
     if len(sys.argv) < 6:
-        print("Usage: python stress_test.py <your-api-key> <your-api-url> <number-of-attempts> <batch-size> <delay-ms>")
+        print("ADJUST PARAMS - Usage: python stress_test.py <your-api-key> <your-api-url> <number-of-attempts> <batch-size> <delay-ms>")
         sys.exit(1)
 
     api_key = sys.argv[1]
