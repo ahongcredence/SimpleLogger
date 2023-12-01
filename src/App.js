@@ -68,11 +68,10 @@ function LogInput() {
       });
       alert('Log submitted successfully!');
       console.log(newLog);
-      await setLogHistory([...logHistory, newLog]); // Update log history with the new log
+      setLogHistory([...logHistory, newLog]); // Update log history with the new log
       setLog({ systemCode: '', logLevel: 'debug', message: '' });
-      await fetchLogs(); // Fetch updated log history
+      //await fetchLogs(); // Fetch updated log history
     } catch (error) {
-      console.log(apiKey);
       console.error('Error submitting log: ', error);
     }
   };
@@ -130,7 +129,8 @@ function LogInput() {
             {
             sortedLogHistory.map((logEntry, index) => {  
               const contentObject = logEntry.content ? JSON.parse(logEntry.content) : {};
-              const obj = JSON.parse(contentObject);          
+              const obj = JSON.parse(contentObject);       
+              console.log(obj);   
               return (
                 <tr key={index}>
                   <td style={{ border: '1px solid #dddddd', padding: '8px' }}>{logEntry.file_name}</td>
